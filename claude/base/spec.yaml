@@ -1,0 +1,29 @@
+schemaVersion: "1"
+kind: mixin
+name: claude-base
+displayName: Claude Base
+description: Base Kit for Claude Code with PyCharm + DeepWiki MCP servers
+
+commands:
+  initFiles:
+    - path: /home/agent/.claude.json
+      content: |
+        {
+          "mcpServers": {
+            "pycharm": {
+              "type": "sse",
+              "url": "http://host.docker.internal:64342/sse",
+              "headers": {}
+            },
+            "deepwiki": {
+              "type": "http",
+              "url": "https://mcp.deepwiki.com/mcp"
+            }
+          }
+        }
+      onlyIfMissing: false
+
+
+network:
+  allowedDomains:
+    - mcp.deepwiki.com

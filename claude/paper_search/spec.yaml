@@ -1,0 +1,54 @@
+schemaVersion: "1"
+kind: mixin
+name: claude-paper-search
+displayName: Claude Paper Search
+description: Claude Code with PyCharm + DeepWiki + Semantic Scholar MCP servers
+
+commands:
+  initFiles:
+    - path: /home/agent/.claude.json
+      content: |
+        {
+          "mcpServers": {
+            "pycharm": {
+              "type": "sse",
+              "url": "http://host.docker.internal:64342/sse",
+              "headers": {}
+            },
+            "deepwiki": {
+              "type": "http",
+              "url": "https://mcp.deepwiki.com/mcp"
+            },
+            "semanticscholar": {
+              "type": "http",
+              "url": "https://asta-tools.allen.ai/mcp/v1",
+              "headers": {
+                "x-api-key": "proxy-managed"
+              }
+            }
+          }
+        }
+      onlyIfMissing: false
+
+
+network:
+  allowedDomains:
+    - mcp.deepwiki.com
+    - asta-tools.allen.ai
+  serviceDomains:
+    asta-tools.allen.ai: allenai
+  serviceAuth:
+    allenai:
+      headerName: x-api-key
+      valueFormat: "%s"
+
+
+credentials:
+  sources:
+    allenai:
+      env:
+        - ALLEN_AI_KEY
+
+environment:
+  proxyManaged:
+    - ALLEN_AI_KEY

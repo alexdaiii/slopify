@@ -1,0 +1,34 @@
+schemaVersion: "1"
+kind: mixin
+name: claude-playwright
+displayName: Claude Playwright
+description: Claude Code with PyCharm + DeepWiki + Playwright MCP servers
+
+commands:
+  initFiles:
+    - path: /home/agent/.claude.json
+      content: |
+        {
+          "mcpServers": {
+            "pycharm": {
+              "type": "sse",
+              "url": "http://host.docker.internal:64342/sse",
+              "headers": {}
+            },
+            "deepwiki": {
+              "type": "http",
+              "url": "https://mcp.deepwiki.com/mcp"
+            },
+            "playwright": {
+              "type": "stdio",
+              "command": "npx",
+              "args": ["@playwright/mcp@latest"]
+            }
+          }
+        }
+      onlyIfMissing: false
+
+
+network:
+  allowedDomains:
+    - mcp.deepwiki.com
