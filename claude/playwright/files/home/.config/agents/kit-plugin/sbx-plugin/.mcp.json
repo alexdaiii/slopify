@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "pycharm": {
+      "type": "sse",
+      "url": "http://host.docker.internal:64342/sse",
+      "headers": {}
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp"
+    }
+  }
+}

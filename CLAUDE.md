@@ -25,8 +25,15 @@ The `opencode/` and `claude/` trees mirror each other deliberately — same cove
 
 Each kit directory has two parts:
 
-- `spec.yaml` — the kit manifest (`kind: mixin`). Defines proxy network allowlist, credential sources, env vars, and the host-tool config. OpenCode kits write `opencode.json` outright via `commands.initFiles`. Claude Code kits drop a **project-scoped `.mcp.json`** into the workspace via `commands.initFiles` with `onlyIfMissing: true` — they do NOT touch `~/.claude.json` (see below).
+- `spec.yaml` — the kit manifest (`kind: mixin`). Defines proxy network allowlist, credential sources, env vars, the host-tool config, and (for `claude/*` kits) a `commands.startup` hook that runs on every sandbox boot.
 - `files/...` — a tree that mirrors the in-sandbox filesystem. The path `files/home/.config/opencode/agents/flash.md` lands at `/home/agent/.config/opencode/agents/flash.md` in the running sandbox.
+
+**Claude kits use a `commands.startup` + `files/` pattern.** Each `claude/*/files/home/.config/agents/` ships:
+- `settings.json` — kit policy (defaultMode, bypassPermissions, enabledPlugins, extraKnownMarketplaces…). The startup hook deep-merges this into `~/.claude/settings.json` on every boot.
+- `merge_settings.py` — the deep-merge script that the startup hook invokes (`python3 -B`). Lives in the kit so it's auditable.
+- `kit-plugin/` — a local Claude Code plugin marketplace named `sbx`, registered in `settings.json` via `extraKnownMarketplaces`. Its sole plugin (`sbx-plugin`) ships the kit's MCP servers via `.mcp.json`. See **Claude Code marketplace layout** below for the directory structure.
+
+OpenCode kits keep the original pattern: `commands.initFiles` writes `opencode.json` outright (no startup hook, no plugin marketplace).
 
 The kits within each tree are near-duplicates. They differ only in (a) the MCP server list (or plugin / marketplace declaration) inside the embedded config and (b) sometimes the `allowedDomains` / `credentials` they require. When changing shared behavior within a tree, change all siblings; when changing behavior shared across the OpenCode and Claude Code stacks, change both rows.
 
@@ -103,33 +110,55 @@ Result: every fresh kit-launched sandbox boots already logged-in, no `/login` pr
 ## Editing conventions
 
 - **OpenCode tool config** is embedded as a YAML literal block inside `spec.yaml` under `commands.initFiles[].content`. Must be valid JSON; mind trailing commas (they break the in-sandbox config silently). Writes `/home/agent/.config/opencode/opencode.json`.
-- **Claude Code MCP config — project-scoped `.mcp.json` written to the workspace.** The kits drop `.mcp.json` into `/home/agent/workspace/.mcp.json` via `commands.initFiles` with `onlyIfMissing: true`:
+- **Claude Code MCP config — declared inside the kit's local plugin (`kit-plugin/sbx-plugin/.mcp.json`)**. The plugin is auto-enabled at every boot via `~/.claude/settings.json.enabledPlugins["sbx-plugin@sbx"]`, and the `sbx` marketplace is registered via `extraKnownMarketplaces.sbx` pointing at `/home/agent/.config/agents/kit-plugin`. To add or change MCP servers, edit `files/home/.config/agents/kit-plugin/sbx-plugin/.mcp.json` in the kit. Standard Claude Code `mcpServers:` schema (transport types `sse`, `http`, `stdio`). This sidesteps the project-scope `.mcp.json` trust-prompt issue that bit us before, because plugin-supplied MCPs don't trigger that prompt.
+
+  **Inconsistency to clean up:** base loads all MCPs via the plugin's `.mcp.json` (no `~/.claude.json` initFiles entry). paper_search / playwright / superpowers still ship a redundant `~/.claude.json` initFiles entry that duplicates pycharm+deepwiki plus their kit-specific server (semanticscholar / playwright). Future cleanup: move each kit's full MCP list into its own plugin `.mcp.json` and drop the `~/.claude.json` initFiles entry. Until then, MCPs are deduplicated by name at load time.
+- **Claude Code `settings.json` is deep-merged at every boot**, not written once. Source of truth: `files/home/.config/agents/settings.json`. The startup hook `python3 -B /home/agent/.config/agents/merge_settings.py` reads it and merges into `~/.claude/settings.json`, recursively merging dicts and overwriting leaf conflicts (kit wins). This preserves keys Claude Code writes back into its own settings file (telemetry IDs, accepted trust prompts, user-installed plugins) while keeping kit policy current.
+
+  To change kit policy (model, defaultMode, enabledPlugins, marketplace path, hooks…): edit `settings.json`. To change merge behavior: edit `merge_settings.py` — both live in `files/home/.config/agents/`. Both are identical across all four claude kits today; keep them in sync.
+- **`commands.startup` is a distinct sbx command type** ([docs](https://docs.docker.com/ai/sandboxes/customize/kits/)), separate from `install` (once at sandbox creation) and `initFiles` (writes files at sandbox creation). `startup` runs on **every boot**. Each entry is an object with:
 
   ```yaml
-  - path: /home/agent/workspace/.mcp.json
-    onlyIfMissing: true
-    content: |
-      {
-        "mcpServers": {
-          "pycharm":  { "type": "sse",  "url": "http://host.docker.internal:64342/sse", "headers": {} },
-          "deepwiki": { "type": "http", "url": "https://mcp.deepwiki.com/mcp" }
-        }
-      }
+  - command: ["python3", "-B", "/home/agent/.config/agents/merge_settings.py"]
+    user: "1000"           # optional, defaults to the sandbox agent user
+    background: false      # optional
+    description: ...       # optional, shows up in sbx run output
   ```
 
-  **Possible-but-unverified issue:** Claude Code shows a one-time trust prompt the first time it sees a new project-scope `.mcp.json`. If the prompt is dismissed or skipped, the servers won't load until the user explicitly accepts. If `claude mcp list` shows nothing after launching a kit, check whether claude is waiting on a trust prompt. Two ways to bypass:
-  - Ship `~/.claude/settings.json` via a third `initFiles` entry with `enableAllProjectMcpServers: true` (not implemented yet).
-  - Or move the MCP block into `~/.claude.json` (user-scope) instead of `/workspace/.mcp.json` (project-scope) — but `~/.claude.json` also holds `oauthAccount` (see auth section), so a kit write would have to merge, not overwrite. With the credentials.json proxy-managed pattern in place, the kit could in principle do this safely; not implemented yet.
+  `command:` is a **string array** — argv, NOT shell-interpreted. To run shell syntax, wrap with `["sh", "-c", "..."]` explicitly. Must be **idempotent** — they run every boot. Sbx docs say to prefer `initFiles` for file writes; we use `startup` here specifically because we *want* the deep-merge re-applied every boot.
+- **Don't put binary files in `files/`** — even as a transient side effect. sbx's file injector breaks on binary content (`sh: 2: Syntax error: Unterminated quoted string`). The way this bit us: an `importlib.exec_module(...)` dry-run of `merge_settings.py` silently created `__pycache__/merge_settings.cpython-313.pyc` inside the kit tree; on the next `sbx run` the `.pyc` broke the injector. Defenses: (a) `python3 -B` in the startup command so the running sandbox never generates `.pyc`, (b) when dry-running a python script that lives under `files/`, run it with `subprocess.run(["python3", "-B", "<path>"])` not `importlib`. Reference: 2026-05.
+- **Claude Code marketplace layout — plugin must live in a subdirectory of the marketplace root.** The walkthrough convention in the [Claude marketplace docs](https://code.claude.com/docs/en/plugin-marketplaces) puts `marketplace.json` at the marketplace root and each plugin in `./<plugin-name>/`. Co-locating them (e.g. `source: "./"` with marketplace.json and plugin.json sharing the same `.claude-plugin/`) fails — Claude reports "Plugin 'X' not found in marketplace 'Y'" even when both names look right. Layout we ended up with for the kit-plugin:
 
-  **`path` is literal — no substitution.** sbx hard-validates `initFiles[].path` as an absolute string. `${WORKDIR}` works inside `content` (per docs) but is rejected in `path` with `must be absolute (got "${WORKDIR}/.mcp.json")`. So the path is hard-coded to `/home/agent/workspace/.mcp.json`, which is the sbx default workspace location (confirmed via `sbx exec -it <vm> bash` → `pwd`). If a future sbx release changes this default, update all 4 kits.
+  ```
+  files/home/.config/agents/kit-plugin/
+    .claude-plugin/marketplace.json       # name: "sbx", plugins: [{name:"sbx-plugin", source:"./sbx-plugin"}]
+    sbx-plugin/
+      .claude-plugin/plugin.json          # name: "sbx-plugin"
+      .mcp.json                           # the kit's MCP servers
+  ```
 
-  `onlyIfMissing: true` matters — without it, the kit would clobber any `.mcp.json` the user already has committed in their repo. To add/change servers, edit the JSON in `content` — must be valid JSON, no trailing commas.
-- **Plugin / marketplace / hook config** for Claude Code goes in `/home/agent/.claude/settings.json` (different file, different schema — [`claude-code-settings.json`](https://json.schemastore.org/claude-code-settings.json) has no `mcpServers` key). Can be written via `initFiles` since OAuth doesn't live there.
+  **The marketplace's `name:` field must match the key used in `extraKnownMarketplaces`.** We register the marketplace under key `"sbx"`, so `marketplace.json.name` must also be `"sbx"`. When they disagreed (`name: "sbx-plugin"` registered under `"sbx"`), `/plugins` couldn't resolve `sbx-plugin@sbx`. Fixed 2026-05.
+
+  **`extraKnownMarketplaces` for a local directory uses `path`, not `repo`.** Schema for a directory-typed marketplace source:
+
+  ```json
+  "extraKnownMarketplaces": {
+    "sbx": {
+      "source": {
+        "source": "directory",
+        "path": "/home/agent/.config/agents/kit-plugin"
+      }
+    }
+  }
+  ```
+
+  `repo` is for `"source": "github"`. The kits' first iteration used `repo` and `/doctor` reported `extraKnownMarketplaces.sbx.source.path: Expected string, but received undefined`.
 - **MCP schemas differ between the two stacks** — don't paste OpenCode entries into a Claude kit:
   - OpenCode uses a top-level `mcp:` block. `type: remote` covers HTTP and SSE servers; `type: local` covers stdio. Stdio servers take a combined `command: ["argv", "array"]`.
   - Claude Code uses `mcpServers:` with explicit transport types `sse`, `http`, or `stdio`. Stdio servers take `command: "executable"` (string) plus `args: [...]`.
-- **Adding a new MCP server**: edit the appropriate `mcp:` block (OpenCode `initFiles` → `opencode.json`) or the `mcpServers` block inside the `.mcp.json` `content` (Claude `initFiles`). If it needs network access, add the host to `network.allowedDomains` and (if it needs proxy-injected auth) wire `serviceDomains` → `serviceAuth` → `credentials.sources` and list any in-sandbox env var under `environment.proxyManaged`. The proxy only injects HTTP **headers** — services that authenticate via URL query params (e.g. NCBI E-utilities `?api_key=…`) can't be wired through this path.
-- **Adding a new kit**: copy a sibling directory under `opencode/` or `claude/`, edit `spec.yaml`, and place any sandbox-side files under `files/<absolute path>`. Then update the README's kit list — both OpenCode and Claude Code sections when applicable.
+- **Adding a new MCP server**: edit the appropriate `mcp:` block (OpenCode `initFiles` → `opencode.json`) or the `mcpServers` block inside `files/home/.config/agents/kit-plugin/sbx-plugin/.mcp.json` (Claude). If it needs network access, add the host to `network.allowedDomains` and (if it needs proxy-injected auth) wire `serviceDomains` → `serviceAuth` → `credentials.sources` and list any in-sandbox env var under `environment.proxyManaged`. The proxy only injects HTTP **headers** — services that authenticate via URL query params (e.g. NCBI E-utilities `?api_key=…`) can't be wired through this path.
+- **Adding a new kit**: copy a sibling directory under `opencode/` or `claude/`, edit `spec.yaml`, and place any sandbox-side files under `files/<absolute path>`. Then update the README's kit list — both OpenCode and Claude Code sections when applicable. For claude kits, also keep `settings.json` and `merge_settings.py` in sync with siblings — they're identical files today.
+- **Python in the sandbox is `python3`** (not `python`). Use that explicitly in startup commands and scripts; relying on a `python` symlink will break.
 - **Subagent definitions** live in `files/home/.config/opencode/agents/` (OpenCode only; Claude Code uses a different agent mechanism). Plain markdown with YAML frontmatter (`mode`, `model`, `permission`). The current `flash.md` is identical across the four opencode kits — keep it in sync if you change one.
 
 ## Model defaults

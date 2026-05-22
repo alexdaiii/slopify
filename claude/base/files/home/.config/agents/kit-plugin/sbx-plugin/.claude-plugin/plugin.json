@@ -1,0 +1,8 @@
+{
+  "name": "sbx-plugin",
+  "description": "A plugin that comes with the sandbox",
+  "version": "0.1.0",
+  "author": {
+    "name": "Alex Chang"
+  }
+}

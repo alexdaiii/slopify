@@ -5,8 +5,17 @@ displayName: Claude Paper Search
 description: Claude Code with PyCharm + DeepWiki + Semantic Scholar MCP servers
 
 commands:
+  # Deep-merge kit settings.json into ~/.claude/settings.json on every
+  # sandbox start. See claude/base/spec.yaml and merge_settings.py docstring.
+  startup:
+    - command:
+        - python3
+        - -B
+        - /home/agent/.config/agents/merge_settings.py
+      description: Deep-merge kit settings.json into ~/.claude/settings.json
+
   initFiles:
-    - path: /home/agent/workspace/.mcp.json
+    - path: /home/agent/.claude.json
       onlyIfMissing: true
       content: |
         {

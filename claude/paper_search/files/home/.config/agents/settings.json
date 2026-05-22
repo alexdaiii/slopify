@@ -1,0 +1,18 @@
+{
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true,
+  "themeId": 1,
+  "defaultMode": "bypassPermissions",
+  "bypassPermissionsModeAccepted": true,
+  "enabledPlugins": {
+    "sbx-plugin@sbx": true
+  },
+  "extraKnownMarketplaces": {
+    "sbx": {
+      "source": {
+        "source": "directory",
+        "path": "/home/agent/.config/agents/kit-plugin"
+      }
+    }
+  }
+}

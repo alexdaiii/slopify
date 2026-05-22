@@ -1,0 +1,15 @@
+{
+  "name": "sbx",
+  "owner": {
+    "name": "Alex Chang",
+    "url": "https://github.com/alexdaiii"
+  },
+  "plugins": [
+    {
+      "name": "sbx-plugin",
+      "source": "./sbx-plugin",
+      "description": "A plugin that comes with the sandbox",
+      "version": "0.1.0"
+    }
+  ]
+}

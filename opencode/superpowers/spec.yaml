@@ -11,46 +11,6 @@ commands:
         git clone --depth 1 https://github.com/OthmanAdi/planning-with-files.git /tmp/pwf
         cp -r /tmp/pwf/skills/planning-with-files /home/agent/.agents/skills
         rm -rf /tmp/pwf
-  initFiles:
-    - path: /home/agent/.config/opencode/opencode.jsonc
-      content: |
-        {
-          "$schema": "https://opencode.ai/config.json",
-          "model": "opencode-go/kimi-k2.6",
-          "small_model": "opencode-go/deepseek-v4-flash",
-          "enabled_providers": [
-            "opencode-go",
-            "opencode"
-          ],
-          "mcp": {
-              "pycharm": {
-                "enabled": true,
-                "type": "remote",
-                "url": "http://host.docker.internal:64342/sse",
-                "headers": {}
-              },
-              "deepwiki": {
-                "enabled": true,
-                "type": "remote",
-                "url": "https://mcp.deepwiki.com/mcp"
-              }
-          },
-          "permission": "allow",
-          "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"],
-          "agent": {
-            "flash": {
-              "mode": "subagent",
-              "description": "{file:~/.config/agents/flash.description.txt}",
-              "model": "opencode-go/deepseek-v4-flash",
-              "permission": {
-                "edit": "allow",
-                "bash": "allow"
-              },
-              "prompt": "{file:~/.config/agents/flash.prompt.md}"
-            }
-          }
-        }
-      onlyIfMissing: false
 
 
 network:

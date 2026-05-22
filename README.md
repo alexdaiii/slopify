@@ -154,31 +154,39 @@ plugin is also enabled, the skill integrates with the `use_skill` tool.
 
 ## Claude Code Configuration Details
 
-The Claude Code kits mirror the OpenCode ones and each ship two
-`commands.initFiles` entries:
+Each `claude/*` kit ships three things to the running sandbox:
 
-1. **`/home/agent/workspace/.mcp.json`** — project-scoped MCP server
-   config in Claude Code's `mcpServers` schema. `onlyIfMissing: true`
-   so a user's own committed `.mcp.json` is never clobbered.
-2. **`/home/agent/.claude/.credentials.json`** — proxy-managed Claude
-   Code OAuth placeholder (`sk-ant-oat01-proxy-managed`). Lets each
-   fresh sandbox boot already-logged-in without a `/login` prompt —
-   the sbx proxy swaps the placeholder for your real host-side OAuth
-   token on every API call. See Prerequisites for details on the
-   fallback paths if it ever stops working.
+1. **`commands.initFiles` → `~/.claude/.credentials.json`** — proxy-managed
+   OAuth placeholder (`sk-ant-oat01-proxy-managed`). Lets each fresh
+   sandbox boot already-logged-in without a `/login` prompt; the sbx
+   proxy swaps the placeholder for your real host-side OAuth token on
+   every API call. See Prerequisites for the fallback paths if it stops
+   working.
+2. **`files/home/.config/agents/`** — a stash containing:
+   - `settings.json` — kit policy (defaultMode, bypassPermissions,
+     `enabledPlugins`, `extraKnownMarketplaces`).
+   - `merge_settings.py` — the script the startup hook invokes.
+   - `kit-plugin/` — a local Claude Code plugin marketplace named `sbx`,
+     containing a single plugin `sbx-plugin` that ships the kit's MCP
+     servers via its own `.mcp.json`.
+3. **`commands.startup` → `python3 -B …/merge_settings.py`** — runs on
+   every sandbox boot. Deep-merges `…/agents/settings.json` into
+   `~/.claude/settings.json`, recursively merging dicts and overwriting
+   leaf conflicts (kit wins). This preserves keys Claude Code writes
+   back into its own settings file (telemetry IDs, accepted trust
+   prompts, user-installed plugins) while keeping kit policy current.
+
+Why a startup-time merge instead of a one-shot `initFiles` write: Claude
+Code rewrites `~/.claude/settings.json` itself during runtime, so a blind
+overwrite on every restart would clobber its work. Why a local
+plugin marketplace instead of a project-scoped `~/workspace/.mcp.json`:
+project-scope MCP files trigger a one-time trust prompt that silently
+suppressed our MCP servers until accepted. Plugin-supplied MCPs don't
+trigger that prompt.
 
 The kits do **not** write `/home/agent/.claude.json` — that file holds
 the user's `oauthAccount` identity block, and Claude Code populates it
 itself on first authenticated API call.
-
-**Known issue (still under investigation):** project-scope `.mcp.json`
-may not load MCP servers automatically — Claude Code can show a
-one-time trust prompt for new project MCP files and silently skips
-loading until you approve. If `claude mcp list` shows nothing after
-launching a kit, check whether claude is waiting on a trust prompt. A
-future kit revision could ship `~/.claude/settings.json` with
-`enableAllProjectMcpServers: true` to bypass the prompt; not
-implemented yet.
 
 **All `claude/*` kits also bundle the
 [planning-with-files](https://github.com/OthmanAdi/planning-with-files)
@@ -186,15 +194,12 @@ plugin** — Manus-style persistent markdown planning (`task_plan.md`,
 `findings.md`, `progress.md`) with built-in hooks that re-inject the plan
 before each prompt, survive `/clear` and context compaction, and prompt
 Claude to update progress after every Write/Edit. The plugin is declared
-via `extraKnownMarketplaces` + `enabledPlugins` in
-`/home/agent/.claude/settings.json`; Claude Code fetches it from GitHub
-and installs on first launch (a one-time trust prompt may appear). Once
-enabled, Claude auto-invokes the skill for any task requiring multiple
-tool calls — no manual `/planning-with-files:plan` needed.
+via `extraKnownMarketplaces` + `enabledPlugins` in `settings.json` and
+fetched from GitHub on first launch.
 
 ### Base Kit (`claude/base`)
 
-MCP Servers:
+MCP Servers (via `sbx-plugin`):
 
 * PyCharm: SSE MCP server connected via `host.docker.internal` for local
   IDE integration.
@@ -217,7 +222,7 @@ Adds:
 ### Superpowers (`claude/superpowers`)
 
 Enables the [Superpowers](https://github.com/obra/superpowers) plugin via
-Claude Code's `enabledPlugins` key in `~/.claude/settings.json`, pointing at
+Claude Code's `enabledPlugins` key in `settings.json`, pointing at
 the official Claude Code plugin marketplace (`claude-plugins-official`,
 auto-added in every Claude Code install). Claude Code installs the plugin
 on first launch and may show a one-time trust prompt; accept it and
