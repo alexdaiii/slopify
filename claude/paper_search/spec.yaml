@@ -15,29 +15,11 @@ commands:
       description: Deep-merge kit settings.json into ~/.claude/settings.json
 
   initFiles:
-    - path: /home/agent/.claude.json
-      onlyIfMissing: true
-      content: |
-        {
-          "mcpServers": {
-            "pycharm": {
-              "type": "sse",
-              "url": "http://host.docker.internal:64342/sse",
-              "headers": {}
-            },
-            "deepwiki": {
-              "type": "http",
-              "url": "https://mcp.deepwiki.com/mcp"
-            },
-            "semanticscholar": {
-              "type": "http",
-              "url": "https://asta-tools.allen.ai/mcp/v1",
-              "headers": {
-                "x-api-key": "proxy-managed"
-              }
-            }
-          }
-        }
+    # MCP servers are shipped by the kit's local plugin
+    # (files/home/.config/agents/kit-plugin/sbx-plugin/.mcp.json), enabled
+    # via settings.json.enabledPlugins. No project-scope ~/.claude.json
+    # entry needed.
+    #
     # Proxy-managed Claude Code OAuth placeholder — sbx proxy swaps the
     # access token for the real Authorization header. See claude/base
     # for the full explanation. Minimal payload (no subscriptionType /

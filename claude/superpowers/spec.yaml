@@ -2,7 +2,7 @@ schemaVersion: "1"
 kind: mixin
 name: claude-superpowers
 displayName: Claude Code + Superpowers Plugin
-description: Claude Code with PyCharm + DeepWiki MCP servers and the obra/superpowers plugin (auto-installed via the official marketplace on first launch).
+description: Claude Code with PyCharm + DeepWiki MCP servers and the obra/superpowers plugin (auto-installed via the claude-plugins-official marketplace on first launch).
 
 commands:
   # Deep-merge kit settings.json into ~/.claude/settings.json on every

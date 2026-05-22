@@ -5,13 +5,21 @@
   "defaultMode": "bypassPermissions",
   "bypassPermissionsModeAccepted": true,
   "enabledPlugins": {
-    "sbx-plugin@sbx": true
+    "sbx-plugin@sbx": true,
+    "planning-with-files@planning-with-files": true,
+    "superpowers@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "sbx": {
       "source": {
         "source": "directory",
         "path": "/home/agent/.config/agents/kit-plugin"
+      }
+    },
+    "planning-with-files": {
+      "source": {
+        "source": "github",
+        "repo": "OthmanAdi/planning-with-files"
       }
     }
   }

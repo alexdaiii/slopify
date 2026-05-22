@@ -8,6 +8,13 @@
     "deepwiki": {
       "type": "http",
       "url": "https://mcp.deepwiki.com/mcp"
+    },
+    "semanticscholar": {
+      "type": "http",
+      "url": "https://asta-tools.allen.ai/mcp/v1",
+      "headers": {
+        "x-api-key": "proxy-managed"
+      }
     }
   }
 }
