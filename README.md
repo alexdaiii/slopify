@@ -16,7 +16,7 @@ OpenCode Go/Zen:
 sbx secret set -g opencode
 ```
 
-For AllenAI/Semantic Scholar,
+For AllenAI/Semantic Scholar:
 
 ```bash
 sbx secret set -g allenai
@@ -28,44 +28,12 @@ variables
 This is expected behavior as the actual keys are managed by the sandbox proxy
 and never directly exposed to the guest microVM.
 
-**Claude Code: no `/login` needed (kits handle it).** Each `claude/*`
-kit ships a proxy-managed `~/.claude/.credentials.json` placeholder via
-`commands.initFiles` — the literal string `"sk-ant-oat01-proxy-managed"`
-in the access-token field tells the sbx proxy to swap in your real
-host-side OAuth credential on every outbound API call. Same pattern as
-opencode's `OPENCODE_API_KEY=proxy-managed`. You don't need
-`sbx secret set -g anthropic` or any host-side claude-specific setup —
-your existing host login is what the proxy reuses.
-
-If for any reason it stops working (e.g. a future sbx version changes
-the proxy behavior), fall back to one of:
-
-1. `/login` inside the sandbox once per fresh sandbox. OAuth flow,
-   `sk-ant-oat01-*` token, persists for that sandbox's lifetime.
-2. `sbx secret set -g anthropic <sk-ant-api03-…>` on the host. The
-   proxy injects `X-Api-Key` instead of `Authorization`. Switches from
-   Claude.ai subscription OAuth to Console API-key billing.
-
-Token storage on Linux (matches [Claude Code authentication docs](https://code.claude.com/docs/en/authentication)):
-
-* `~/.claude/.credentials.json` — OAuth access + refresh tokens (or
-  the proxy-managed placeholder our kit injects). Mode `0600`. Hidden
-  by plain `ls`; use `ls -la`.
-* `~/.claude.json` — `oauthAccount` identity metadata (UUID, email,
-  org, billing tier) plus recent-project state. NOT the token itself,
-  but Claude Code needs it for identity. Kits avoid writing this file
-  to preserve the user's `oauthAccount`.
-* `~/.claude/backups/.claude.json.backup.<timestamp>` — Claude Code
-  auto-snapshots `~/.claude.json` before mutations. Recoverable if a
-  kit ever clobbers it.
-* macOS uses the Keychain instead.
-
 ## Usage
 
 To run the sandbox, use the following command if this kit is downloaded:
 
 ``` bash
-sbx run --kit <PATH_TO_KIT_DIR>  opencode
+sbx run --kit <PATH_TO_KIT_DIR> opencode
 ```
 
 If you are getting this kit from GitHub:
@@ -100,6 +68,9 @@ MCP Servers:
 Adds:
 
 * Semantic Scholar: Remote MCP server (AllenAI) for paper search.
+* GXL.ai Paperclip: Remote MCP server for full-text papers https://paperclip.gxl.ai/
+* Research Paper Workflow Skill: How to use sementaic scholar and Paperclip MCP to search for papers
+* Zotero Local Skill: How to query Zotero (if installed) for papers
 
 Requires the AllenAI secret to be set before running the sandbox.
 
@@ -115,7 +86,7 @@ Enables the [Superpowers](https://github.com/obra/superpowers) plugin via
 OpenCode's native `plugin: ["superpowers@git+..."]` declaration in
 `opencode.json`. OpenCode auto-installs the plugin on first launch.
 
-## YOLO Mode (Auto-Approve)
+### YOLO Mode (Auto-Approve)
 
 All OpenCode kits are configured in **YOLO mode** with full permissions:
 
@@ -180,9 +151,8 @@ Why a startup-time merge instead of a one-shot `initFiles` write: Claude
 Code rewrites `~/.claude/settings.json` itself during runtime, so a blind
 overwrite on every restart would clobber its work. Why a local
 plugin marketplace instead of a project-scoped `~/workspace/.mcp.json`:
-project-scope MCP files trigger a one-time trust prompt that silently
-suppressed our MCP servers until accepted. Plugin-supplied MCPs don't
-trigger that prompt.
+project-scope MCP files will be written directly into the workplace and may
+override the user's or kit's own MCP files.
 
 The kits do **not** write `/home/agent/.claude.json` — that file holds
 the user's `oauthAccount` identity block, and Claude Code populates it
@@ -197,6 +167,31 @@ Claude to update progress after every Write/Edit. The plugin is declared
 via `extraKnownMarketplaces` + `enabledPlugins` in `settings.json` and
 fetched from GitHub on first launch.
 
+## Claude Code Auth
+
+**You can run `/login` once in the sandbox and future sandboxes 
+should be able to pick up the login if not on API pricing.** 
+
+Each `claude/*` kit ships a proxy-managed `~/.claude/.credentials.json` placeholder via
+`commands.initFiles` — the literal string `"sk-ant-oat01-proxy-managed"`
+in the access-token field tells the sbx proxy to swap in your real
+host-side OAuth credential on every outbound API call.
+
+If for any reason it stops working (e.g. a future sbx version changes
+the proxy behavior), fall back to:
+
+- `sbx secret set -g anthropic <sk-ant-api03-…>` on the host. The
+   proxy injects `X-Api-Key` instead of `Authorization`. Switches from
+   Claude.ai subscription OAuth to API-key billing.
+
+Token storage on Linux (matches [Claude Code authentication docs](https://code.claude.com/docs/en/authentication)):
+
+* `~/.claude/.credentials.json` — OAuth access + refresh tokens (or
+  the proxy-managed placeholder our kit injects). Mode `0600`.
+* `~/.claude.json` — `oauthAccount` identity metadata (UUID, email,
+  org, billing tier) plus recent-project state. NOT the token itself,
+  but Claude Code needs it for identity.
+
 ### Base Kit (`claude/base`)
 
 MCP Servers (via `sbx-plugin`):
@@ -210,6 +205,9 @@ MCP Servers (via `sbx-plugin`):
 Adds:
 
 * Semantic Scholar: Remote HTTP MCP server (AllenAI) for paper search.
+* GXL.ai Paperclip: Remote MCP server for full-text papers https://paperclip.gxl.ai/
+* Research Paper Workflow Skill: How to use sementaic scholar and Paperclip MCP to search for papers
+* Zotero Local Skill: How to query Zotero (if installed) for papers
 
 Requires the AllenAI secret to be set before running the sandbox.
 
