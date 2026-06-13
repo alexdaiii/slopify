@@ -1,7 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode-go/kimi-k2.7-code",
-  "small_model": "opencode-go/deepseek-v4-flash",
+  "model": "opencode-go/minimax-m3",
   "enabled_providers": [
     "opencode-go",
     "opencode"
@@ -35,17 +34,5 @@
         }
       }
   },
-  "permission": "allow",
-  "agent": {
-    "flash": {
-      "mode": "subagent",
-      "description": "{file:~/.config/agents/flash.description.txt}",
-      "model": "opencode-go/deepseek-v4-flash",
-      "permission": {
-        "edit": "allow",
-        "bash": "allow"
-      },
-      "prompt": "{file:~/.config/agents/flash.prompt.md}"
-    }
-  }
+  "permission": "allow"
 }

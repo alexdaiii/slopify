@@ -1,0 +1,55 @@
+schemaVersion: "1"
+kind: mixin
+name: opencode-go-auth-ant
+displayName: OpenCode Go Auth (Anthropic Endpoints)
+description: Paper search Kit with x-api-key auth and MiniMax M3 model
+
+commands:
+  install:
+    - command: |
+        mkdir -p /home/agent/.agents/skills
+        git clone --depth 1 https://github.com/OthmanAdi/planning-with-files.git /tmp/pwf
+        cp -r /tmp/pwf/skills/planning-with-files /home/agent/.agents/skills
+        rm -rf /tmp/pwf
+
+
+network:
+  allowedDomains:
+    - opencode.ai
+    - asta-tools.allen.ai
+    - paperclip.gxl.ai
+  serviceDomains:
+    opencode.ai: opencode
+    asta-tools.allen.ai: allenai
+    paperclip.gxl.ai: gxl-paperclip
+  serviceAuth:
+    opencode:
+      headerName: x-api-key
+      valueFormat: "%s"
+    allenai:
+      headerName: x-api-key
+      valueFormat: "%s"
+    gxl-paperclip:
+      headerName: X-API-Key
+      valueFormat: "%s"
+
+
+credentials:
+  sources:
+    opencode:
+      env:
+        - OPENCODE_API_KEY
+    allenai:
+      env:
+        - ALLEN_AI_KEY
+    gxl-paperclip:
+      env:
+        - PAPERCLIP_API_KEY
+
+environment:
+  proxyManaged:
+    - OPENCODE_API_KEY
+    - ALLEN_AI_KEY
+    - PAPERCLIP_API_KEY
+  variables:
+    OPENCODE_ENABLE_EXA: 1

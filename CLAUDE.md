@@ -11,9 +11,13 @@ A collection of [`sbx`](https://docs.anthropic.com/) sandbox **kits** that confi
 ```
 opencode/
   base/          # OpenCode Go auth + PyCharm MCP + DeepWiki MCP
+  base-ant/      # same, x-api-key auth + MiniMax M3 model (no flash subagent)
   paper_search/  # + Semantic Scholar (AllenAI) MCP + Paperclip MCP + research-paper-workflow skill
+  paper_search-ant/ # same, x-api-key auth + MiniMax M3 model (no flash subagent)
   playwright/    # + Playwright local MCP
+  playwright-ant/  # same, x-api-key auth + MiniMax M3 model (no flash subagent)
   superpowers/   # + obra/superpowers plugin (autoinstalled by OpenCode)
+  superpowers-ant/  # same, x-api-key auth + MiniMax M3 model (no flash subagent)
 claude/
   base/          # Claude Code + PyCharm MCP + DeepWiki MCP
   paper_search/  # + Semantic Scholar (AllenAI) MCP + Paperclip MCP + research-paper-workflow skill
@@ -174,7 +178,11 @@ Result: every fresh kit-launched sandbox boots already logged-in, no `/login` pr
 
 ## Model defaults
 
-Each `opencode/*` kit pins `model: opencode-go/kimi-k2.6` and `small_model: opencode-go/deepseek-v4-flash` in the embedded `opencode.json`. The `flash` subagent uses the small model. The `claude/*` kits don't pin a model — Claude Code uses whatever model the user's `/login` selects.
+Each `opencode/*` kit (without `-ant` suffix) pins `model: opencode-go/kimi-k2.7-code` and `small_model: opencode-go/deepseek-v4-flash` in the embedded `opencode.json`. The `flash` subagent uses the small model.
+
+The `-ant` suffixed kits use `model: opencode-go/minimax-m3` with no `small_model` and no `flash` subagent, because the DeepSeek Flash model runs on OpenAI-compatible (Bearer-auth) endpoints that are incompatible with the `x-api-key` auth path those kits use.
+
+The `claude/*` kits don't pin a model — Claude Code uses whatever model the user's `/login` selects.
 
 ## Integrating external skills / plugins
 

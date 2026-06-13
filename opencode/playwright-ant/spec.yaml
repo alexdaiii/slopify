@@ -1,8 +1,8 @@
 schemaVersion: "1"
 kind: mixin
-name: opencode-go-auth
-displayName: OpenCode Go Auth Base
-description: Base Kit for injecting authentication for OpenCode Go
+name: opencode-go-auth-ant
+displayName: OpenCode Go Auth (Anthropic Endpoints)
+description: Playwright Kit with x-api-key auth and MiniMax M3 model
 
 commands:
   install:
@@ -16,8 +16,7 @@ commands:
       content: |
         {
           "$schema": "https://opencode.ai/config.json",
-          "model": "opencode-go/kimi-k2.7-code",
-          "small_model": "opencode-go/deepseek-v4-flash",
+          "model": "opencode-go/minimax-m3",
           "enabled_providers": [
             "opencode-go",
             "opencode"
@@ -40,19 +39,7 @@ commands:
                 "command": ["npx", "@playwright/mcp@latest"]
               }
           },
-          "permission": "allow",
-          "agent": {
-            "flash": {
-              "mode": "subagent",
-              "description": "{file:~/.config/agents/flash.description.txt}",
-              "model": "opencode-go/deepseek-v4-flash",
-              "permission": {
-                "edit": "allow",
-                "bash": "allow"
-              },
-              "prompt": "{file:~/.config/agents/flash.prompt.md}"
-            }
-          }
+          "permission": "allow"
         }
       onlyIfMissing: true
 
@@ -62,12 +49,12 @@ network:
     - opencode.ai
     - asta-tools.allen.ai
   serviceDomains:
-    opencode.ai: opencode # Tag traffic to this domain
+    opencode.ai: opencode
     asta-tools.allen.ai: allenai
   serviceAuth:
     opencode:
-      headerName: Authorization # Overwrite this header
-      valueFormat: "Bearer %s"
+      headerName: x-api-key
+      valueFormat: "%s"
     allenai:
       headerName: x-api-key
       valueFormat: "%s"
@@ -77,15 +64,14 @@ credentials:
   sources:
     opencode:
       env:
-        - OPENCODE_API_KEY # Host-side credential lookup
+        - OPENCODE_API_KEY
     allenai:
       env:
         - ALLEN_AI_KEY
 
 environment:
   proxyManaged:
-    - OPENCODE_API_KEY # Set the in-VM env var to "proxy-managed"
+    - OPENCODE_API_KEY
     - ALLEN_AI_KEY
   variables:
-    # required to enable websearch (NON PRIVACY!)
     OPENCODE_ENABLE_EXA: 1

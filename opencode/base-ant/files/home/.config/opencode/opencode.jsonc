@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/minimax-m3",
+  "enabled_providers": [
+    "opencode-go",
+    "opencode"
+  ],
+  "mcp": {
+    "pycharm": {
+      "enabled": true,
+      "type": "remote",
+      "url": "http://host.docker.internal:64342/sse",
+      "headers": {}
+    },
+    "deepwiki": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://mcp.deepwiki.com/mcp"
+    }
+  },
+  "permission": "allow"
+}

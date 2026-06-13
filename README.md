@@ -53,7 +53,20 @@ For a Claude Code kit, swap the final agent argument from `opencode` to
 
 The sandbox is configured with:
 
-Model: `opencode-go/kimi-k2.6`
+Model: `opencode-go/kimi-k2.7-code` (default kits) or `opencode-go/minimax-m3` (-ant kits)
+
+Auth: `Authorization: Bearer %s` (default kits) or `x-api-key: %s` (-ant kits)
+
+### -ant Suffix Variants
+
+Every OpenCode kit has a matching `-ant` variant (base-ant, paper_search-ant,
+playwright-ant). These use **Anthropic-compatible endpoints** (`x-api-key` auth
+instead of `Authorization: Bearer`) and the **MiniMax M3** model instead of
+Kimi K2.7. They also omit the `flash` subagent and `small_model` since the
+DeepSeek Flash model runs on OpenAI-compatible (Bearer-auth) endpoints that
+are incompatible with the `x-api-key` auth path.
+
+All other kit features (MCP servers, skills, install commands) are identical.
 
 ### Base Kit
 
