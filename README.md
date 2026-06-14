@@ -28,6 +28,63 @@ variables
 This is expected behavior as the actual keys are managed by the sandbox proxy
 and never directly exposed to the guest microVM.
 
+### Host-side SBX proxy (any `-ant` kit)
+
+The `-ant` kits (`base-ant`, `paper_search-ant`, `playwright-ant`,
+`superpowers-ant`) do **not** talk to `https://opencode.ai` directly. They
+route the built-in `opencode-go` provider through a small Go reverse proxy
+included in this repo at `proxy-ant-opencode.go`, which listens on
+`127.0.0.1:11434` and forwards to `https://opencode.ai`. On
+`/v1/messages` requests the proxy additionally mirrors
+`Authorization: Bearer <key>` into `X-API-Key: <key>` so the upstream
+Anthropic-Messages endpoint accepts the call; `/v1/chat/completions` and
+`/v1/models` pass through untouched.
+
+This indirection is what gives `-ant` kits access to the full
+opencode-go model catalog (14 models, including the OpenAI-compatible
+ones like Kimi K2.7 Code, GLM-5.1, DeepSeek V4 Pro/Flash, MiMo-V2.5)
+rather than the 6 Anthropic-Messages models reachable via x-api-key
+directly.
+
+Start the proxy before launching the sandbox. The proxy is a
+foreground process that blocks the terminal until you Ctrl-C, so
+the usual pattern is to background it and capture the PID for
+later cleanup:
+
+```bash
+# from this repo's root
+nohup go run proxy-ant-opencode.go > /tmp/sbx-proxy.log 2>&1 &
+echo $! > /tmp/sbx-proxy.pid
+disown
+
+# then run the sandbox as usual
+sbx run --kit ./opencode/base-ant opencode
+```
+
+`tail -f /tmp/sbx-proxy.log` to watch requests flow through. Stop the
+proxy with `kill $(cat /tmp/sbx-proxy.pid)`. The proxy needs no
+secrets of its own — the sbx proxy already swapped `proxy-managed`
+for your real key by the time the request reaches `127.0.0.1:11434`.
+
+For a more permanent install, build once to a stable binary path so
+`pkill` is unambiguous (the `go run` process name is a temp path):
+
+```bash
+go build -o ~/bin/sbx-proxy proxy-ant-opencode.go
+nohup ~/bin/sbx-proxy > /tmp/sbx-proxy.log 2>&1 &
+echo $! > /tmp/sbx-proxy.pid
+disown
+```
+
+After the build, `kill $(cat /tmp/sbx-proxy.pid)` still works, or
+`pkill sbx-proxy` matches by binary name.
+
+**If the proxy isn't running**, the sandbox will boot but every
+OpenCode API call will fail to connect to `host.docker.internal:11434`
+and the model picker will be empty. The non-`-ant` kits (`base`,
+`paper_search`, `playwright`, `superpowers`) do not use this proxy and
+are unaffected.
+
 ## Usage
 
 To run the sandbox, use the following command if this kit is downloaded:
@@ -53,20 +110,31 @@ For a Claude Code kit, swap the final agent argument from `opencode` to
 
 The sandbox is configured with:
 
-Model: `opencode-go/kimi-k2.7-code` (default kits) or `opencode-go/minimax-m3` (-ant kits)
+Model: `opencode-go/kimi-k2.7-code` (default kits) or `opencode-go/minimax-m3` (`-ant` kits)
 
-Auth: `Authorization: Bearer %s` (default kits) or `x-api-key: %s` (-ant kits)
+Auth: `Authorization: Bearer %s` (default kits) or `Authorization: Bearer %s` routed through the host-side SBX proxy (`-ant` kits; the proxy mirrors it to `X-API-Key` upstream)
 
 ### -ant Suffix Variants
 
-Every OpenCode kit has a matching `-ant` variant (base-ant, paper_search-ant,
-playwright-ant). These use **Anthropic-compatible endpoints** (`x-api-key` auth
-instead of `Authorization: Bearer`) and the **MiniMax M3** model instead of
-Kimi K2.7. They also omit the `flash` subagent and `small_model` since the
-DeepSeek Flash model runs on OpenAI-compatible (Bearer-auth) endpoints that
-are incompatible with the `x-api-key` auth path.
+Every OpenCode kit has a matching `-ant` variant (`base-ant`,
+`paper_search-ant`, `playwright-ant`, `superpowers-ant`). They pin the
+**MiniMax M3** model (instead of Kimi K2.7 Code), route all API calls
+through the **host-side SBX proxy** at `127.0.0.1:11434` (see
+Prerequisites), and as a result see the **full 14-model opencode-go
+catalog** — the same Anthropic-Messages models as the default kits
+*plus* the OpenAI-compatible ones (Kimi, GLM, DeepSeek Pro/Flash, MiMo).
+The proxy path is what makes this possible: the direct x-api-key auth
+the default kits would have used only reaches the 6 Anthropic-Messages
+models.
 
-All other kit features (MCP servers, skills, install commands) are identical.
+All `-ant` kits ship the `flash` subagent backed by
+`opencode-go/deepseek-v4-flash` (the proxy path makes Bearer auth work
+for it, which the direct x-api-key path would not).
+
+**Prerequisite:** the host-side SBX proxy must be running. See
+**Prerequisites → Host-side SBX proxy** above for `go run` instructions.
+All other kit features (MCP servers, skills, install commands) are
+identical to the default kit.
 
 ### Base Kit
 

@@ -1,8 +1,11 @@
 schemaVersion: "1"
 kind: mixin
 name: opencode-go-auth-ant
-displayName: OpenCode Go Auth (Anthropic Endpoints)
-description: Superpowers Kit with x-api-key auth and MiniMax M3 model
+displayName: OpenCode Go (SBX Proxy)
+description: |
+  Superpowers Kit for OpenCode Go, routed through the host-side SBX
+  proxy (127.0.0.1:11434) which mirrors `Authorization Bearer` to
+  `X-API-Key` upstream. Adds the obra/superpowers plugin.
 
 commands:
   install:
@@ -19,11 +22,12 @@ network:
     - asta-tools.allen.ai
   serviceDomains:
     opencode.ai: opencode
+    localhost: opencode
     asta-tools.allen.ai: allenai
   serviceAuth:
     opencode:
-      headerName: x-api-key
-      valueFormat: "%s"
+      headerName: Authorization
+      valueFormat: "Bearer %s"
     allenai:
       headerName: x-api-key
       valueFormat: "%s"

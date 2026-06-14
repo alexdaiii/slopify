@@ -11,13 +11,14 @@ A collection of [`sbx`](https://docs.anthropic.com/) sandbox **kits** that confi
 ```
 opencode/
   base/          # OpenCode Go auth + PyCharm MCP + DeepWiki MCP
-  base-ant/      # same, x-api-key auth + MiniMax M3 model (no flash subagent)
+  base/          # OpenCode Go auth + PyCharm MCP + DeepWiki MCP
+  base-ant/      # same, SBX proxy path + MiniMax M3 model (full 14-model catalog)
   paper_search/  # + Semantic Scholar (AllenAI) MCP + Paperclip MCP + research-paper-workflow skill
-  paper_search-ant/ # same, x-api-key auth + MiniMax M3 model (no flash subagent)
+  paper_search-ant/ # same, SBX proxy path + MiniMax M3 model (full 14-model catalog)
   playwright/    # + Playwright local MCP
-  playwright-ant/  # same, x-api-key auth + MiniMax M3 model (no flash subagent)
+  playwright-ant/  # same, SBX proxy path + MiniMax M3 model (full 14-model catalog)
   superpowers/   # + obra/superpowers plugin (autoinstalled by OpenCode)
-  superpowers-ant/  # same, x-api-key auth + MiniMax M3 model (no flash subagent)
+  superpowers-ant/  # same, SBX proxy path + MiniMax M3 model (full 14-model catalog)
 claude/
   base/          # Claude Code + PyCharm MCP + DeepWiki MCP
   paper_search/  # + Semantic Scholar (AllenAI) MCP + Paperclip MCP + research-paper-workflow skill
@@ -180,7 +181,13 @@ Result: every fresh kit-launched sandbox boots already logged-in, no `/login` pr
 
 Each `opencode/*` kit (without `-ant` suffix) pins `model: opencode-go/kimi-k2.7-code` and `small_model: opencode-go/deepseek-v4-flash` in the embedded `opencode.json`. The `flash` subagent uses the small model.
 
-The `-ant` suffixed kits use `model: opencode-go/minimax-m3` with no `small_model` and no `flash` subagent, because the DeepSeek Flash model runs on OpenAI-compatible (Bearer-auth) endpoints that are incompatible with the `x-api-key` auth path those kits use.
+The `-ant` suffixed kits (`base-ant`, `paper_search-ant`, `playwright-ant`, `superpowers-ant`) pin `model: opencode-go/minimax-m3`, `small_model: opencode-go/deepseek-v4-flash`, and ship the `flash` subagent — same model set as the default kits, but routed through the host-side Go reverse proxy (`proxy-ant-opencode.go`, listens on `127.0.0.1:11434`):
+
+- `opencode.jsonc` sets `provider.opencode-go.options.baseURL` to `http://host.docker.internal:11434/zen/go/v1` — this overrides the built-in provider's baseURL and tells OpenCode to fetch the model catalog from upstream through the proxy.
+- The proxy forwards every request to `https://opencode.ai` unchanged. On `/v1/messages` calls it additionally mirrors the `Authorization: Bearer <key>` header into `X-API-Key: <key>` (the upstream Anthropic-Messages endpoint expects x-api-key; OpenCode's `@ai-sdk/anthropic` client sends Bearer). `/v1/chat/completions` (OpenAI-compatible models like Kimi, DeepSeek, GLM, MiMo) and `/v1/models` (catalog fetch) pass through with no header mutation.
+- The proxy is not part of any kit; it's a host-side binary the user runs on the loopback interface. The kit's job is just to point `opencode-go`'s `baseURL` at `host.docker.internal:11434`. `network.allowedDomains` does not need `localhost` for this — `host.docker.internal` resolves to the docker bridge and is the only entry that has to be reachable; the kit's `serviceDomains` does list `localhost: opencode` so sbx can swap the `proxy-managed` placeholder into the `Authorization` header on the way through.
+- Because the override is on the built-in `opencode-go` provider, `/models` shows the full upstream catalog (14 models as of 2026-06) without any hand-maintained list. There is no custom provider block in `opencode.jsonc` — earlier revisions defined an `opencode-anthropic-proxy` provider that hard-coded the model list, but that's been removed in favor of the baseURL override.
+- All four `-ant` kits are uniform: same provider override, same flash subagent. The proxy path is the only thing that makes the openai-compatible models (Kimi, GLM, MiMo, DeepSeek Pro/Flash) reachable with Bearer auth. If the proxy is not running, OpenCode will fail to connect and `/models` will be empty — the default (non-`-ant`) kits are unaffected.
 
 The `claude/*` kits don't pin a model — Claude Code uses whatever model the user's `/login` selects.
 
