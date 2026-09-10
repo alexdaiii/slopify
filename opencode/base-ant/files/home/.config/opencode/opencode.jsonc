@@ -1,14 +1,7 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode-go/minimax-m3",
+  "model": "opencode-go/glm-5.3-flash",
   "small_model": "opencode-go/deepseek-v4-flash",
-  "provider": {
-    "opencode-go": {
-      "options": {
-        "baseURL": "http://host.docker.internal:11434/zen/go/v1"
-      }
-    }
-  },
   "enabled_providers": [
     "opencode-go",
     "opencode"
@@ -26,6 +19,7 @@
       "url": "https://mcp.deepwiki.com/mcp"
     }
   },
+  "permission": "allow",
   "agent": {
     "flash": {
       "mode": "subagent",
@@ -38,5 +32,11 @@
       "prompt": "{file:~/.config/agents/flash.prompt.md}"
     }
   },
-  "permission": "allow"
+  "provider": {
+    "opencode-go": {
+      "options": {
+        "baseURL": "http://host.docker.internal:11434/zen/go/v1"
+      }
+    }
+  }
 }

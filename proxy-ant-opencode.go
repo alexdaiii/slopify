@@ -78,5 +78,4 @@ func main() {
 
 	log.Fatal(srv.ListenAndServe())
 
-	log.Println("[Info] Proxy for opencode.ai is now running on port 11434")
 }
